@@ -1,12 +1,8 @@
 
-ifeq ($(ANDROID_HOME),)
 NDK ?= $(ANDROID_NDK)
-else
-NDK ?= $(lastword $(sort $(wildcard $(dir $(ANDROID_HOME))/android-ndk*)))
-endif
 
 ifeq ($(NDK),)
-$(error no ndk found - set ANDROID_HOME or ANDROID_NDK)
+$(error no ndk found - set ANDROID_NDK)
 endif
 
 .PHONY: andprof dist check clean

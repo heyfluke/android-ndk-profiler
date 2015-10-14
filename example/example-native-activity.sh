@@ -33,7 +33,7 @@ ndk=$(dirname $ndk_build)
 
 if [ ! -d native-activity ] ; then
     # copy example from ndk
-    cp -r $ndk/samples/native-activity/ . || die "Could not copy the example"
+    cp -r $ndk/samples/native-activity . || die "Could not copy the example"
     # find the oldest target available that's 10 or higher
     exampletarget=$($android list targets | awk '/android-[0-9]/{gsub("\"", ""); split($4, a, "-"); if (a[2] >= 10) { print $4}}' | head -n1)
     test -z "$exampletarget" && die "unable to find a suitable android target android-10 or up"
