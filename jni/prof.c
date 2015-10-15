@@ -72,9 +72,9 @@ typedef struct {
 } callgraph_t;
 
 typedef struct {
-	size_t low_pc;
-	size_t high_pc;
-	size_t text_size;
+	unsigned int low_pc;
+	unsigned int high_pc;
+	unsigned int text_size;
 } process_t;
 
 typedef struct {
@@ -149,7 +149,11 @@ static void histogram_bin_incr(int sig, siginfo_t *info, void *context)
 {
 	ucontext_t *ucontext = (ucontext_t *) context;
 	struct sigcontext *mcontext = &ucontext->uc_mcontext;
+#ifdef __aarch64__
+	uint32_t frompcindex = mcontext->pc;
+#else
 	uint32_t frompcindex = mcontext->arm_pc;
+#endif // 32
 
 	uint16_t *b = (uint16_t *) hist.bins;
 
