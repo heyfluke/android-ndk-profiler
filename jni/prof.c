@@ -93,6 +93,18 @@ static void systemMessage(int a, const char *msg)
 	LOGI("%d: %s", a, msg);
 }
 
+static void profPut64(char *b, uint64_t v)
+{
+  b[0] = v & 255;
+  b[1] = (v >> 8) & 255;
+  b[2] = (v >> 16) & 255;
+  b[3] = (v >> 24) & 255;
+  b[4] = (v >> 32) & 255;
+  b[5] = (v >> 40) & 255;
+  b[6] = (v >> 48) & 255;
+  b[7] = (v >> 56) & 255;
+}
+
 static void profPut32(char *b, uint32_t v)
 {
 	b[0] = v & 255;
@@ -113,6 +125,16 @@ static int profWrite8(FILE *f, uint8_t b)
 		return 1;
 	}
 	return 0;
+}
+
+static int profWrite64(FILE *f, uint64_t v)
+{
+  char buf[8];
+
+  profPut64(buf, v);
+  if(fwrite(buf, 1, 8, f) != 8)
+    return 1;
+  return 0;
 }
 
 static int profWrite32(FILE *f, uint32_t v)
@@ -231,6 +253,7 @@ static int select_frequency()
 
 static void process_init()
 {
+	LOGI("%s:%d\n", __FUNCTION__, __LINE__);  // test
 	process.low_pc = s_maps->lo;
 	process.high_pc = s_maps->hi;
 	/*
@@ -246,6 +269,7 @@ static void process_init()
 
 static int histogram_init()
 {
+	LOGI("%s:%d\n", __FUNCTION__, __LINE__);  // test
 	hist.nb_bins = (process.text_size / HISTFRACTION);
 
 	/* FIXME: check if '2' is the size of short or if it has another meaning */
@@ -259,6 +283,7 @@ static int histogram_init()
 
 static int cg_init()
 {
+	LOGI("%s:%d\n", __FUNCTION__, __LINE__);  // test
 	/* FIXME: what should be the size of 'froms' */
 	/* froms = calloc(1, 4 * process.text_size / HASHFRACTION); */
 	cg.froms = calloc(1, sizeof(short) * hist.nb_bins);
@@ -423,6 +448,7 @@ void moncleanup(void)
 
 void profCount(size_t *frompcindex, char *selfpc)
 {
+	LOGI("%s:%d, frompcindex %p, selfpc %p\n", __FUNCTION__, __LINE__, frompcindex, selfpc);  // test
 	struct tostruct *top;
 	struct tostruct *prevtop;
 	size_t toindex;
