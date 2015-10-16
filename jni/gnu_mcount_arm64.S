@@ -8,13 +8,32 @@
  * (at your option) any later version.
  */
 
+.section .bss
+.macro mcount_enter
+        stp     x29, x30, [sp, #-16]!
+        mov     x29, sp
+        .endm
+
+.macro mcount_exit
+        ldp     x29, x30, [sp], #16
+        ret
+        .endm
+
+
+.section .text
 
 .align 2
-.global __gnu_mcount_nc
-.type __gnu_mcount_nc,function
+.global _mcount
+.type _mcount,function
 
-__gnu_mcount_nc:
+_mcount:
+        mcount_enter
 
+        ldr x0, [sp, #16]
+        mov x1, x30
+        bl profCount
+
+        mcount_exit
 /*
         push {r0-r3}
         push {lr}

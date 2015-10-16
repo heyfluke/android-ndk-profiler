@@ -36,7 +36,7 @@ if [ -d san-angeles ] ; then
 fi
 
 # copy example from ndk
-cp -r $ndk/samples/san-angeles/ . || die "Could not copy the example"
+cp -r $ndk/samples/san-angeles . || die "Could not copy the example"
 # min target is android-10
 exampletarget=$($android list targets | awk '/android-[0-9]/{gsub("\"", ""); split($4, a, "-"); if (a[2] >= 10) { print $4}}' | head -n1)
 test -z "$exampletarget" && die "unable to find a suitable android target android-10 or up"
