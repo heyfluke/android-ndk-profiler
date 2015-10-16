@@ -11,3 +11,8 @@ which provides a non-intrusive way to profile your applications using Linux perf
 [Usage]: https://github.com/richq/android-ndk-profiler/blob/master/docs/Usage.md
 [Example]: https://github.com/richq/android-ndk-profiler/blob/master/docs/Example.md
 [HowItWorks]: https://github.com/richq/android-ndk-profiler/blob/master/docs/HowItWorks.md
+
+
+## SOME NOTES
+* I added arm64 mcount, but gmon.out not work currently.
+* ndk-build NDK_DEBUG=1 prevent defining NDEBUG, in this way see some debug logs.

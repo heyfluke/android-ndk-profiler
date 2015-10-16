@@ -12,6 +12,10 @@
 #include <stdlib.h>
 #include "read_maps.h"
 
+#ifdef __aarch64__
+#include <inttypes.h>
+#endif // __aarch64__
+
 #ifdef ANDROID
 #include <android/log.h>    /* for __android_log_print, ANDROID_LOG_INFO, etc */
 #define LOGI(...)  __android_log_print(ANDROID_LOG_INFO, "PROFILING", __VA_ARGS__)
@@ -48,8 +52,13 @@ struct proc_map *read_maps(FILE *fp, const char *lname)
 		    && strcmp(lname, &s_line[len - namelen]) == 0) {
 			char c[1];
 			char perm[4];
-			int lo, base, hi;
+			long lo, base, hi;
+			LOGI("s_line %s\n", s_line);
+#ifdef __aarch64__
+			sscanf(s_line, "%" SCNx64 "-%" SCNx64 " %4c %x %c", &lo, &hi, perm, &base, c);
+#else
 			sscanf(s_line, "%x-%x %4c %x %c", &lo, &hi, perm, &base, c);
+#endif // __aarch64__
 
 			if (results == NULL) {
 				current = malloc(sizeof(struct proc_map));
@@ -69,7 +78,11 @@ struct proc_map *read_maps(FILE *fp, const char *lname)
 				current->next = NULL;
 			}
 
+#ifdef __aarch64__
+			LOGI("process '%s', base = 0x%x, lo = 0x%llx, hi = 0x%llx", lname, base, lo, hi);
+#else
 			LOGI("process '%s', base = 0x%x, lo = 0x%x, hi = 0x%x", lname, base, lo, hi);
+#endif // __aarch64__
 
 			current->base = base;
 			current->lo = lo;
@@ -79,8 +92,8 @@ struct proc_map *read_maps(FILE *fp, const char *lname)
 	return results;
 }
 
-unsigned int get_real_address(const struct proc_map *maps,
-			      unsigned int fake)
+unsigned long get_real_address(const struct proc_map *maps,
+			      unsigned long fake)
 {
 	const struct proc_map *mp = maps;
 	while (mp) {

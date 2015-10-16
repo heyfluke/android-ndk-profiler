@@ -63,18 +63,24 @@
 
 #define LOGI(...)  __android_log_print(ANDROID_LOG_INFO, "PROFILING", __VA_ARGS__)
 
+#ifndef NDEBUG
+	#define LOGD(...)  __android_log_print(ANDROID_LOG_DEBUG, "PROFILING", __VA_ARGS__)
+#else
+ 	#define LOGD(...)  // void
+#endif // DEBUG
+
 #define DEFAULT_GMON_OUT "/sdcard/gmon.out"
 
 typedef struct {
 	unsigned short *froms;
 	struct tostruct *tos;
-	long tolimit;
+	int tolimit;
 } callgraph_t;
 
 typedef struct {
-	unsigned int low_pc;
-	unsigned int high_pc;
-	unsigned int text_size;
+	unsigned long low_pc;
+	unsigned long high_pc;
+	unsigned long text_size;
 } process_t;
 
 typedef struct {
@@ -90,7 +96,7 @@ int opt_is_shared_lib = 0;
 
 static void systemMessage(int a, const char *msg)
 {
-	LOGI("%d: %s", a, msg);
+	LOGI("systemMessage:%d: %s", a, msg);
 }
 
 static void profPut64(char *b, uint64_t v)
@@ -210,7 +216,7 @@ static void add_profile_handler(int sample_freq)
 	setitimer(ITIMER_PROF, &timer, 0);
 }
 
-static long remove_profile_handler(void)
+static int remove_profile_handler(void)
 {
 	struct itimerval timer;
 	struct itimerval oldtimer;
@@ -253,9 +259,11 @@ static int select_frequency()
 
 static void process_init()
 {
-	LOGI("%s:%d\n", __FUNCTION__, __LINE__);  // test
+	LOGD("%s:%d\n", __FUNCTION__, __LINE__);  // test
 	process.low_pc = s_maps->lo;
 	process.high_pc = s_maps->hi;
+	LOGD("process.low_pc=%p, process.high_pc=%p\n", process.low_pc, process.low_pc);
+	LOGD("s_maps->lo=%p, s_maps->hi=%p\n", s_maps->lo, s_maps->hi);
 	/*
 	 * round lowpc and highpc to multiples of the density we're using
 	 * so the rest of the scaling (here and in gprof) stays in ints.
@@ -263,13 +271,14 @@ static void process_init()
 	process.low_pc = ROUNDDOWN(process.low_pc, HISTFRACTION * sizeof(HISTCOUNTER));
 	process.high_pc = ROUNDUP(process.high_pc, HISTFRACTION * sizeof(HISTCOUNTER));
 	process.text_size = process.high_pc - process.low_pc;
+	LOGD("process.text_size=%lld\n", process.text_size);
 }
 
 #define MSG ("No space for profiling buffer(s)\n")
 
 static int histogram_init()
 {
-	LOGI("%s:%d\n", __FUNCTION__, __LINE__);  // test
+	// LOGI("%s:%d\n", __FUNCTION__, __LINE__);  // test
 	hist.nb_bins = (process.text_size / HISTFRACTION);
 
 	/* FIXME: check if '2' is the size of short or if it has another meaning */
@@ -283,7 +292,7 @@ static int histogram_init()
 
 static int cg_init()
 {
-	LOGI("%s:%d\n", __FUNCTION__, __LINE__);  // test
+	// LOGI("%s:%d\n", __FUNCTION__, __LINE__);  // test
 	/* FIXME: what should be the size of 'froms' */
 	/* froms = calloc(1, 4 * process.text_size / HASHFRACTION); */
 	cg.froms = calloc(1, sizeof(short) * hist.nb_bins);
@@ -371,12 +380,12 @@ void moncleanup(void)
 	FILE *fd;
 	int fromindex;
 	int endfrom;
-	uint32_t frompc;
+	long frompc;
 	int toindex;
 	struct gmon_hdr ghdr;
 	const char *gmon_name = get_gmon_out();
 
-	long ival = remove_profile_handler();
+	int ival = remove_profile_handler();
 	int sample_freq = 1000000 / ival;
 
 	LOGI("Sampling frequency: %d", sample_freq);
@@ -395,9 +404,19 @@ void moncleanup(void)
 		return;
 	}
 
+	LOGD("low_pc %p, high_pc %p, hist.nb_bins %d\n", 
+		get_real_address(s_maps, (unsigned long) process.low_pc), 
+		get_real_address(s_maps, (unsigned long) process.high_pc),
+		hist.nb_bins);
+
 	if (profWrite8(fd, GMON_TAG_TIME_HIST)
+#ifdef __aarch64__
+		|| profWrite64(fd, get_real_address(s_maps, (uint64_t) process.low_pc))
+	    || profWrite64(fd, get_real_address(s_maps, (uint64_t) process.high_pc))
+#else
 	    || profWrite32(fd, get_real_address(s_maps, (uint32_t) process.low_pc))
 	    || profWrite32(fd, get_real_address(s_maps, (uint32_t) process.high_pc))
+#endif // __aarch64__
 	    || profWrite32(fd, hist.nb_bins)
 	    || profWrite32(fd, sample_freq)
 	    || profWrite(fd, "seconds", 15)
@@ -422,6 +441,7 @@ void moncleanup(void)
 	endfrom = process.text_size / (HASHFRACTION * sizeof(*cg.froms));
 	for (fromindex = 0; fromindex < endfrom; fromindex++) {
 		if (cg.froms[fromindex] == 0) {
+			// LOGD("cg.froms[fromindex] == 0, fromindex==%d\n", fromindex);
 			continue;
 		}
 		frompc =
@@ -429,13 +449,30 @@ void moncleanup(void)
 		frompc = get_real_address(s_maps, frompc);
 		for (toindex = cg.froms[fromindex]; toindex != 0;
 		     toindex = cg.tos[toindex].link) {
+
+			LOGD("write item: frompc=%p, selfpc=%p\n",
+								frompc,
+							    get_real_address(s_maps,
+							    (uint64_t)
+							    cg.tos[toindex].
+							    selfpc));
+
 			if (profWrite8(fd, GMON_TAG_CG_ARC)
+#ifdef __aarch64__
+			    || profWrite64(fd, (uint64_t) frompc)
+			    || profWrite64(fd,
+					   get_real_address(s_maps,
+							    (uint64_t)
+							    cg.tos[toindex].
+							    selfpc))
+#else
 			    || profWrite32(fd, (uint32_t) frompc)
 			    || profWrite32(fd,
 					   get_real_address(s_maps,
 							    (uint32_t)
 							    cg.tos[toindex].
 							    selfpc))
+#endif // __aarch64__
 			    || profWrite32(fd, cg.tos[toindex].count)) {
 				systemMessage(0, "ERROR writing mcount: arc");
 				fclose(fd);
@@ -448,7 +485,7 @@ void moncleanup(void)
 
 void profCount(size_t *frompcindex, char *selfpc)
 {
-	LOGI("%s:%d, frompcindex %p, selfpc %p\n", __FUNCTION__, __LINE__, frompcindex, selfpc);  // test
+	LOGD("%s:%d, frompcindex %p, selfpc %p\n", __FUNCTION__, __LINE__, frompcindex, selfpc);  // test
 	struct tostruct *top;
 	struct tostruct *prevtop;
 	size_t toindex;
@@ -476,6 +513,7 @@ void profCount(size_t *frompcindex, char *selfpc)
 	/* frompcindex = (size_t *) ( (size_t) frompcindex - process.low_pc); */
 
 	size_t frompc_val = (size_t) frompcindex - process.low_pc;
+	LOGD("frompc_val %lld, process.text_size %lld\n", frompc_val, process.text_size);
 	size_t *frompc_ptr = (size_t *) frompc_val;
 
 	if (frompc_val > process.text_size) {

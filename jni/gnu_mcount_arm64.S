@@ -25,7 +25,7 @@
         stp     x2, x3, [sp, #-16]!
         stp     x0, x1, [sp, #-16]!
         mov     x29, sp
-        .endm
+.endm
 
 .macro mcount_exit
         ldp     x0, x1, [sp], #16
@@ -40,7 +40,7 @@
         ldp     x18, x19, [sp], #16
         ldp     x29, x30, [sp], #16
         ret
-        .endm
+.endm
 
 
 
@@ -54,7 +54,7 @@ _mcount:
         mcount_enter
 
         # ldr x0, [sp, #16]
-        ldr x0, [sp, #16 * 11]
+        # x0 is last lr set by compiler.
         mov x1, x30
         bl profCount
 
